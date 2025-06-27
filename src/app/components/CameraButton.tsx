@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 
 interface CropArea {
   x: number;
@@ -79,19 +80,23 @@ export default function CameraButton() {
       setStream(mediaStream);
       setIsCameraOpen(true);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error accessing camera:', error);
       
       let errorMessage = 'Unable to access camera. ';
       
-      if (error.name === 'NotAllowedError') {
-        errorMessage += 'Please allow camera permissions and refresh the page.';
-      } else if (error.name === 'NotFoundError') {
-        errorMessage += 'No camera found on this device.';
-      } else if (error.name === 'NotSupportedError') {
-        errorMessage += 'Camera access is not supported in this browser.';
-      } else if (error.message) {
-        errorMessage += error.message;
+      if (error instanceof Error) {
+        if (error.name === 'NotAllowedError') {
+          errorMessage += 'Please allow camera permissions and refresh the page.';
+        } else if (error.name === 'NotFoundError') {
+          errorMessage += 'No camera found on this device.';
+        } else if (error.name === 'NotSupportedError') {
+          errorMessage += 'Camera access is not supported in this browser.';
+        } else if (error.message) {
+          errorMessage += error.message;
+        } else {
+          errorMessage += 'Please check your camera permissions and try again.';
+        }
       } else {
         errorMessage += 'Please check your camera permissions and try again.';
       }
@@ -382,12 +387,14 @@ export default function CameraButton() {
                   onMouseUp={handleMouseUp}
                   onMouseLeave={handleMouseUp}
                 >
-                  <img
+                  <Image
                     ref={imageRef}
                     src={capturedImage}
                     alt="Captured photo"
+                    width={400}
+                    height={300}
                     className="w-full max-w-md rounded-lg shadow-lg border-2 border-gray-200"
-                    draggable={false}
+                    unoptimized
                   />
                   {/* Crop Rectangle */}
                   <div
@@ -458,10 +465,13 @@ export default function CameraButton() {
             <div className="flex flex-col items-center gap-3">
               <h3 className="text-lg font-semibold text-gray-800">Cropped Image</h3>
               <div className="relative">
-                <img
+                <Image
                   src={croppedImage}
                   alt="Cropped photo"
+                  width={400}
+                  height={300}
                   className="w-full max-w-md rounded-lg shadow-lg border-2 border-gray-200"
+                  unoptimized
                 />
                 <button
                   onClick={downloadCroppedPhoto}
