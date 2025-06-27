@@ -174,14 +174,19 @@ export default function CameraButton() {
     }
   };
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
     if (!capturedImage) return;
     
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    // Prevent default to stop scrolling
+    e.preventDefault();
     
-    // Check if click is inside crop area
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    
+    // Check if click/touch is inside crop area
     if (x >= cropArea.x && x <= cropArea.x + cropArea.width &&
         y >= cropArea.y && y <= cropArea.y + cropArea.height) {
       setIsDragging(true);
@@ -189,12 +194,17 @@ export default function CameraButton() {
     }
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isDragging || !capturedImage) return;
     
+    // Prevent default to stop scrolling
+    e.preventDefault();
+    
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left - dragStart.x;
-    const y = e.clientY - rect.top - dragStart.y;
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const x = clientX - rect.left - dragStart.x;
+    const y = clientY - rect.top - dragStart.y;
     
     // Constrain to image bounds
     const maxX = 400 - cropArea.width; // max-w-md width
@@ -207,7 +217,10 @@ export default function CameraButton() {
     }));
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e?: React.MouseEvent | React.TouchEvent) => {
+    if (e) {
+      e.preventDefault();
+    }
     setIsDragging(false);
   };
 
@@ -386,6 +399,10 @@ export default function CameraButton() {
                   onMouseMove={handleMouseMove}
                   onMouseUp={handleMouseUp}
                   onMouseLeave={handleMouseUp}
+                  onTouchStart={handleMouseDown}
+                  onTouchMove={handleMouseMove}
+                  onTouchEnd={handleMouseUp}
+                  style={{ touchAction: 'none' }}
                 >
                   <Image
                     ref={imageRef}
