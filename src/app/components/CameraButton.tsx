@@ -48,6 +48,25 @@ export default function CameraButton() {
     }
   }, [stream]);
 
+  // Effect to handle body scrolling when dragging
+  useEffect(() => {
+    if (isDragging) {
+      // Disable body scrolling when dragging
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+    } else {
+      // Re-enable body scrolling when not dragging
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    }
+
+    // Cleanup function
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    };
+  }, [isDragging]);
+
   const openCamera = async () => {
     setIsLoading(true);
     setError(null);
@@ -179,6 +198,7 @@ export default function CameraButton() {
     
     // Prevent default to stop scrolling
     e.preventDefault();
+    e.stopPropagation();
     
     const rect = e.currentTarget.getBoundingClientRect();
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -199,6 +219,7 @@ export default function CameraButton() {
     
     // Prevent default to stop scrolling
     e.preventDefault();
+    e.stopPropagation();
     
     const rect = e.currentTarget.getBoundingClientRect();
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -220,8 +241,28 @@ export default function CameraButton() {
   const handleMouseUp = (e?: React.MouseEvent | React.TouchEvent) => {
     if (e) {
       e.preventDefault();
+      e.stopPropagation();
     }
     setIsDragging(false);
+  };
+
+  // Add specific touch handlers for better mobile support
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleMouseDown(e);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleMouseMove(e);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleMouseUp(e);
   };
 
   const closeCamera = () => {
@@ -399,9 +440,9 @@ export default function CameraButton() {
                   onMouseMove={handleMouseMove}
                   onMouseUp={handleMouseUp}
                   onMouseLeave={handleMouseUp}
-                  onTouchStart={handleMouseDown}
-                  onTouchMove={handleMouseMove}
-                  onTouchEnd={handleMouseUp}
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
                   style={{ touchAction: 'none' }}
                 >
                   <Image
@@ -415,19 +456,24 @@ export default function CameraButton() {
                   />
                   {/* Crop Rectangle */}
                   <div
-                    className="absolute border-2 border-yellow-400 bg-yellow-400 bg-opacity-20 cursor-move"
+                    className="absolute border-2 border-yellow-400 bg-yellow-400 bg-opacity-20 cursor-move select-none"
                     style={{
                       left: cropArea.x,
                       top: cropArea.y,
                       width: cropArea.width,
                       height: cropArea.height,
+                      touchAction: 'none',
+                      userSelect: 'none',
+                      WebkitUserSelect: 'none',
+                      MozUserSelect: 'none',
+                      msUserSelect: 'none'
                     }}
                   >
-                    {/* Corner handles */}
-                    <div className="absolute -top-1 -left-1 w-2 h-2 bg-yellow-400 rounded-full"></div>
-                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full"></div>
-                    <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-yellow-400 rounded-full"></div>
-                    <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full"></div>
+                    {/* Corner handles - made larger for mobile */}
+                    <div className="absolute -top-2 -left-2 w-4 h-4 bg-yellow-400 rounded-full border-2 border-white shadow-lg"></div>
+                    <div className="absolute -top-2 -right-2 w-4 h-4 bg-yellow-400 rounded-full border-2 border-white shadow-lg"></div>
+                    <div className="absolute -bottom-2 -left-2 w-4 h-4 bg-yellow-400 rounded-full border-2 border-white shadow-lg"></div>
+                    <div className="absolute -bottom-2 -right-2 w-4 h-4 bg-yellow-400 rounded-full border-2 border-white shadow-lg"></div>
                   </div>
                 </div>
                 <button
