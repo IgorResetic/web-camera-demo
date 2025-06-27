@@ -137,7 +137,7 @@ export default function CameraButton() {
     if (capturedImage && canvasRef.current) {
       const canvas = canvasRef.current;
       const context = canvas.getContext('2d');
-      const img = new Image();
+      const img = document.createElement('img') as HTMLImageElement;
       
       img.onload = () => {
         if (context) {
