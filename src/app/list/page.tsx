@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -72,50 +72,172 @@ export default function ListPage() {
 
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
+  const [draggedElement, setDraggedElement] = useState<HTMLElement | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   // Effect to handle body scrolling when dragging
   useEffect(() => {
     if (isDragging) {
-      // Disable body scrolling when dragging
       document.body.style.overflow = 'hidden';
       document.body.style.touchAction = 'none';
     } else {
-      // Re-enable body scrolling when not dragging
       document.body.style.overflow = '';
       document.body.style.touchAction = '';
     }
 
-    // Cleanup function
     return () => {
       document.body.style.overflow = '';
       document.body.style.touchAction = '';
     };
   }, [isDragging]);
 
-  const handleDragStart = (e: React.DragEvent | React.TouchEvent, id: string) => {
+  const handleTouchStart = (e: React.TouchEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
+    const touch = e.touches[0];
+    const element = e.currentTarget as HTMLElement;
+    const rect = element.getBoundingClientRect();
+
     setDraggedItem(id);
     setIsDragging(true);
+    setDraggedElement(element);
+    setDragOffset({
+      x: touch.clientX - rect.left,
+      y: touch.clientY - rect.top
+    });
+    setDragPosition({
+      x: touch.clientX,
+      y: touch.clientY
+    });
+
+    // Add dragging class
+    element.style.position = 'fixed';
+    element.style.zIndex = '1000';
+    element.style.pointerEvents = 'none';
+    element.style.transform = 'rotate(5deg) scale(1.05)';
+    element.style.boxShadow = '0 10px 30px rgba(0,0,0,0.3)';
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const touch = e.touches[0];
+    setDragPosition({
+      x: touch.clientX,
+      y: touch.clientY
+    });
+
+    if (draggedElement) {
+      draggedElement.style.left = `${touch.clientX - dragOffset.x}px`;
+      draggedElement.style.top = `${touch.clientY - dragOffset.y}px`;
+    }
+
+    // Find the element under the touch
+    const touchY = touch.clientY;
+    const listItems = listRef.current?.children;
     
-    if ('dataTransfer' in e) {
-      e.dataTransfer.effectAllowed = 'move';
+    if (listItems) {
+      for (let i = 0; i < listItems.length; i++) {
+        const item = listItems[i] as HTMLElement;
+        const rect = item.getBoundingClientRect();
+        
+        if (touchY >= rect.top && touchY <= rect.bottom) {
+          const itemId = item.getAttribute('data-id');
+          if (itemId && itemId !== draggedItem) {
+            // Highlight potential drop zone
+            item.style.backgroundColor = '#f0f9ff';
+            item.style.border = '2px dashed #3b82f6';
+          }
+        } else {
+          // Remove highlight
+          item.style.backgroundColor = '';
+          item.style.border = '';
+        }
+      }
     }
   };
 
-  const handleDragOver = (e: React.DragEvent | React.TouchEvent) => {
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!isDragging || !draggedItem) return;
+
     e.preventDefault();
     e.stopPropagation();
+
+    // Find the drop target
+    const touchY = e.changedTouches[0].clientY;
+    const listItems = listRef.current?.children;
+    let dropTargetId = null;
     
-    if ('dataTransfer' in e) {
-      e.dataTransfer.dropEffect = 'move';
+    if (listItems) {
+      for (let i = 0; i < listItems.length; i++) {
+        const item = listItems[i] as HTMLElement;
+        const rect = item.getBoundingClientRect();
+        
+        if (touchY >= rect.top && touchY <= rect.bottom) {
+          dropTargetId = item.getAttribute('data-id');
+          break;
+        }
+      }
     }
+
+    // Reset dragged element styles
+    if (draggedElement) {
+      draggedElement.style.position = '';
+      draggedElement.style.zIndex = '';
+      draggedElement.style.pointerEvents = '';
+      draggedElement.style.transform = '';
+      draggedElement.style.boxShadow = '';
+      draggedElement.style.left = '';
+      draggedElement.style.top = '';
+    }
+
+    // Remove highlights
+    if (listItems) {
+      for (let i = 0; i < listItems.length; i++) {
+        const item = listItems[i] as HTMLElement;
+        item.style.backgroundColor = '';
+        item.style.border = '';
+      }
+    }
+
+    // Perform reorder if drop target found
+    if (dropTargetId && dropTargetId !== draggedItem) {
+      const draggedIndex = items.findIndex(item => item.id === draggedItem);
+      const targetIndex = items.findIndex(item => item.id === dropTargetId);
+
+      if (draggedIndex !== -1 && targetIndex !== -1) {
+        const newItems = [...items];
+        const [draggedItemData] = newItems.splice(draggedIndex, 1);
+        newItems.splice(targetIndex, 0, draggedItemData);
+        setItems(newItems);
+      }
+    }
+
+    setDraggedItem(null);
+    setIsDragging(false);
+    setDraggedElement(null);
   };
 
-  const handleDrop = (e: React.DragEvent | React.TouchEvent, targetId: string) => {
+  // Desktop drag and drop handlers
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedItem(id);
+    setIsDragging(true);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
     
     if (!draggedItem || draggedItem === targetId) return;
 
@@ -133,32 +255,9 @@ export default function ListPage() {
     setIsDragging(false);
   };
 
-  const handleDragEnd = (e?: React.DragEvent | React.TouchEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
+  const handleDragEnd = () => {
     setDraggedItem(null);
     setIsDragging(false);
-  };
-
-  // Specific touch handlers for better mobile support
-  const handleTouchStart = (e: React.TouchEvent, id: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    handleDragStart(e, id);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    handleDragOver(e);
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    handleDragEnd(e);
   };
 
   const renderItem = (item: ListItem) => {
@@ -233,15 +332,16 @@ export default function ListPage() {
             </Link>
           </div>
           <p className="text-gray-600">
-            Drag and drop items to reorder the list. Try moving different types of content around!
+            Touch and hold any item, then drag to reorder the list. Works great on mobile!
           </p>
         </div>
 
         {/* List */}
-        <div className="space-y-4">
+        <div ref={listRef} className="space-y-4">
           {items.map((item, index) => (
             <div
               key={item.id}
+              data-id={item.id}
               draggable
               onDragStart={(e) => handleDragStart(e, item.id)}
               onDragOver={handleDragOver}
@@ -251,8 +351,8 @@ export default function ListPage() {
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
               style={{ touchAction: 'none' }}
-              className={`cursor-move transition-all duration-200 select-none ${
-                draggedItem === item.id ? 'opacity-50 scale-95' : 'hover:scale-[1.02]'
+              className={`transition-all duration-200 select-none cursor-move ${
+                draggedItem === item.id ? 'opacity-50' : 'hover:scale-[1.02]'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -271,11 +371,11 @@ export default function ListPage() {
         <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200">
           <h3 className="font-semibold text-blue-800 mb-2">How to use:</h3>
           <ul className="text-blue-700 text-sm space-y-1">
-            <li>• Click and drag any item to move it up or down in the list</li>
-            <li>• On mobile: Touch and hold, then drag to reorder</li>
+            <li>• <strong>Mobile:</strong> Touch and hold any item, then drag to reorder</li>
+            <li>• <strong>Desktop:</strong> Click and drag any item to move it</li>
             <li>• The list contains different types of content: text, multi-line text, images, and videos</li>
-            <li>• Items will show a visual feedback when being dragged</li>
-            <li>• Drop the item in the desired position to reorder</li>
+            <li>• Items will show visual feedback when being dragged</li>
+            <li>• Drop zones will be highlighted when dragging over them</li>
           </ul>
         </div>
       </div>
