@@ -1,4 +1,5 @@
 import CameraButton from './components/CameraButton';
+import Link from 'next/link';
 
 export default function Home() {
   return (
@@ -16,9 +17,16 @@ export default function Home() {
         <CameraButton />
         
         <div className="mt-8 text-center">
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 mb-4">
             Make sure to allow camera permissions when prompted
           </p>
+          
+          <Link
+            href="/list"
+            className="inline-block bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-colors duration-200"
+          >
+            Next Page
+          </Link>
         </div>
       </div>
     </div>
