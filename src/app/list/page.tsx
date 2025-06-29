@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -71,19 +71,51 @@ export default function ListPage() {
   ]);
 
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
-  const handleDragStart = (e: React.DragEvent, id: string) => {
+  // Effect to handle body scrolling when dragging
+  useEffect(() => {
+    if (isDragging) {
+      // Disable body scrolling when dragging
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+    } else {
+      // Re-enable body scrolling when not dragging
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    }
+
+    // Cleanup function
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    };
+  }, [isDragging]);
+
+  const handleDragStart = (e: React.DragEvent | React.TouchEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     setDraggedItem(id);
-    e.dataTransfer.effectAllowed = 'move';
+    setIsDragging(true);
+    
+    if ('dataTransfer' in e) {
+      e.dataTransfer.effectAllowed = 'move';
+    }
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent | React.TouchEvent) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    e.stopPropagation();
+    
+    if ('dataTransfer' in e) {
+      e.dataTransfer.dropEffect = 'move';
+    }
   };
 
-  const handleDrop = (e: React.DragEvent, targetId: string) => {
+  const handleDrop = (e: React.DragEvent | React.TouchEvent, targetId: string) => {
     e.preventDefault();
+    e.stopPropagation();
     
     if (!draggedItem || draggedItem === targetId) return;
 
@@ -98,10 +130,35 @@ export default function ListPage() {
 
     setItems(newItems);
     setDraggedItem(null);
+    setIsDragging(false);
   };
 
-  const handleDragEnd = () => {
+  const handleDragEnd = (e?: React.DragEvent | React.TouchEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setDraggedItem(null);
+    setIsDragging(false);
+  };
+
+  // Specific touch handlers for better mobile support
+  const handleTouchStart = (e: React.TouchEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleDragStart(e, id);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleDragOver(e);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleDragEnd(e);
   };
 
   const renderItem = (item: ListItem) => {
@@ -190,7 +247,11 @@ export default function ListPage() {
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, item.id)}
               onDragEnd={handleDragEnd}
-              className={`cursor-move transition-all duration-200 ${
+              onTouchStart={(e) => handleTouchStart(e, item.id)}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              style={{ touchAction: 'none' }}
+              className={`cursor-move transition-all duration-200 select-none ${
                 draggedItem === item.id ? 'opacity-50 scale-95' : 'hover:scale-[1.02]'
               }`}
             >
@@ -211,6 +272,7 @@ export default function ListPage() {
           <h3 className="font-semibold text-blue-800 mb-2">How to use:</h3>
           <ul className="text-blue-700 text-sm space-y-1">
             <li>• Click and drag any item to move it up or down in the list</li>
+            <li>• On mobile: Touch and hold, then drag to reorder</li>
             <li>• The list contains different types of content: text, multi-line text, images, and videos</li>
             <li>• Items will show a visual feedback when being dragged</li>
             <li>• Drop the item in the desired position to reorder</li>
